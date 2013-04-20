@@ -110,7 +110,7 @@ var planets = (function(){
 	PERIAPSIS_ARGUMENT_ANGLE        : 286.400000
     };
 
-    var jupitor = {
+    var jupiter = {
 	A_AXIS_RADIUS                   : 71492.000000,
 	B_AXIS_RADIUS                   : 71492.000000,
 	C_AXIS_RADIUS                   : 66854.000000,
@@ -220,7 +220,7 @@ var planets = (function(){
 	    VENUS: venus,
 	    EARTH: earth,
 	    MARS: mars,
-	    JUPITOR: jupitor,
+	    JUPITER: jupiter,
 	    SATURN: saturn,
 	    URANUS: uranus,
 	    NEPTUNE: neptune
@@ -246,6 +246,8 @@ var cursor = (function(){
 	    toggle: function(){
 		this.visibility = !(this.visibility);
 		setCursor.call(this);
+	    },
+	    setPlanet: function(){
 	    }
 	};
     });
@@ -274,7 +276,7 @@ var scroll = (function($, db){
 		var self = this;
 		this.$window.scroll(function(e){
 		    var amount = parseInt(self.$window.scrollTop()) - self.previousScrollTop;
-		    var top = self.previousScrollTop + amount * self.ratio;
+		    var top = self.previousScrollTop + amount * self.ratio * self.ratio * self.ratio;
 		    self.$window.scrollTop(top);
 		    self.previousScrollTop = self.$window.scrollTop();
 		});
@@ -282,6 +284,7 @@ var scroll = (function($, db){
 	    setPlanet: function(planet){
 		this.planet = planet;
 		this.ratio = db.PLANETS.EARTH.SURFACE_GRAVITY / planet.SURFACE_GRAVITY;
+		console.log("gravity ratio = " + this.ratio);
 	    }
 	};
     })();
@@ -310,15 +313,15 @@ var setting = (function(db, cursor, scroll){
     Setting.prototype = (function(){
 	return {
 	    setPlanet: function(name){
+		name = name.toUpperCase();
 		this.planet = selectPlanetData(name);
 		console.log("chnage to " + name);
-		console.log(this.planet);
-		this.cursor.setPlanet(this.planet);
+		console.log(this.planet.SURFACE_GRAVITY);
+//		this.cursor.setPlanet(this.planet);
 		this.scroll.setPlanet(this.planet);
 	    },
 	    setDefault: function(){
-//		this.planet = selectPlanetData("EARTH");
-		this.planet = selectPlanetData("JUPITOR");
+		this.planet = selectPlanetData("EARTH");
 	    },
 	    apply: function(){
 		console.log("apply");
