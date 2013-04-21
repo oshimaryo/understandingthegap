@@ -1,5 +1,7 @@
-var planets = (function(){
+var ipudg = ipudg || {};
 
+ipudg.planets = (function(){
+    
     var UNK = null;
 
     var mercury = {
@@ -230,38 +232,86 @@ var planets = (function(){
     };
 })();
 
-var cursor = (function(){
-    var Cursor = function(planet){
-    };
-    Cursor.prototype = (function(){
-
-	var setCursor = function(){
-	    if(this.visibility){
-
-	    }else{
-	    }
-	};
+ipudg.cursor = (function(db, $){
+    var Cursor = function(planet, dataUrl){
+	this.dataUrl = dataUrl;
+	this.setPlanet(planet);
 	
+	initCursor.call(this);
+    };
+
+    var initCursor = function(){
+	var body = $("body").css("cursor", "none");
+	this.cursor = $("<div></div>").attr("id", "ipdug-cursor");
+	this.cursor.css({
+	    "background": "url(" + this.dataUrl + "cursor.png) no-repeat",
+	    "width": "36px",
+	    "height": "64px",
+	    "position": "absolute",
+	    "left": "0px",
+	    "top": "0px",
+	    "pointer-events": "none",
+	    "z-index": "9999"
+	});
+	body.append(this.cursor);
+    };
+
+    Cursor.prototype = (function(){
 	return {
-	    toggle: function(){
-		this.visibility = !(this.visibility);
-		setCursor.call(this);
+	    setRatio: function(){
+		if(this.planet != null){
+		    this.ratio = db.PLANETS.EARTH.SURFACE_GRAVITY / this.planet.SURFACE_GRAVITY;
+		}
+		console.log("cursor#setratio: " + this.ratio);
 	    },
-	    setPlanet: function(){
+	    setPlanet: function(planet){
+		this.planet = planet;
+		this.setRatio();
+	    },
+	    apply: function(){
+		console.log("applying Cursor");
+		var self = this;
+		var click = function(e){
+		    if(self.ratio == null){
+			self.setRatio();
+		    }
+		    e.preventDefault();
+		    var clientX = e.clientX * self.ratio;
+		    var clientY = e.clientY * self.ratio;
+		    var screenX = (e.screenX - e.clientX) + clientX;
+		    var screenY = (e.screenY - e.clientY) + clientY;
+		    var target = document.elementFromPoint(clientX, clientY);
+		    var event = document.createEvent("MouseEvents");
+		    event.initMouseEvent("click", true, true, window, 1, screenX, screenY, clientX, clientY, false, false, false, false, 0, null);
+		    window.removeEventListener("click", click, true);
+		    target.dispatchEvent(event);
+		    window.addEventListener("click", click, true);
+		};
+		var mousemove =  function(e){
+		    if(self.ratio == null){
+			self.setRatio();
+		    }
+		    var x = e.clientX * self.ratio;
+		    var y = e.clientY * self.ratio;
+		    self.cursor.css("left", x + "px");
+		    self.cursor.css("top", y + "px");
+		};
+		window.addEventListener("click", click, true);
+		window.addEventListener("mousemove", mousemove, true);
 	    }
 	};
-    });
+    })();
 
     return {
 	Cursor: Cursor,
-	new: function(){
-	    new Cursor();
+	new: function(planet, dataUrl){
+	    return new Cursor(planet, dataUrl);
 	}
     };
     
-})(planets);
+})(ipudg.planets, window.jQuery);
 
-var scroll = (function($, db){
+ipudg.scroll = (function($, db){
 
     var scroll = function(planet){
 	this.planet = this.setPlanet(planet);
@@ -296,18 +346,78 @@ var scroll = (function($, db){
 	}
     };
     
-})(window.jQuery, planets);
+})(window.jQuery, ipudg.planets);
 
-var setting = (function(db, cursor, scroll){
+ipudg.text = (function(db, $){
+
+    var Processor = function(planet){
+	this.setPlanet(planet, false);
+    };
+
+    Processor.prototype = (function(){
+
+	var setRatio = function(){
+	    this.ratio = this.MEAN_SOLAR_DAY / db.PLANETS.EARTH.MEAN_SOLAR_DAY;
+	};
+
+	var getBodyHeight = function(){
+	    if(this.$body == null){
+		this.$body = $("body");
+	    }
+	    return this.$body.innerHeight();
+	};
+
+	var setThreshold = function(){
+	    this.threshold = getBodyHeight.call(this) * this.ratio;
+	};
+
+	var setOpacity = function(root, threshold){
+	    
+	};
+
+	return {
+	    setPlanet: function(planet, only_set){
+		this.planet = planet;
+		setRatio.call(this);
+		setThreshold.call(this);
+		if(only_set == null){
+		    this.apply();
+		}
+	    },
+	    apply: function(){
+		console.log($("body").innerHeight());
+		
+	    }
+	};
+    })();
+
+    return {
+	Processor: Processor,
+	processor: {
+	    new: function(planet){
+		return new Processor(planet);
+	    }
+	}
+    };
+    
+})(ipudg.planets, window.jQuery);
+
+ipudg.setting = (function(db, cursor, scroll, text){
 
     var selectPlanetData = function(name){
 	return db.PLANETS[name] || db.PLANETS.EARTH;
     };
 
-    var Setting = function(){
+    var Setting = function(dataUrl){
+	this.dataUrl = dataUrl;
+	console.log("dataUrl = " + this.dataUrl);
 	this.setDefault();
-	this.cursor = new cursor.Cursor(this.planet);
-	this.scroll = scroll.new(this.planet);
+
+	this.cursor = cursor.new(this.planet, this.dataUrl);
+	this.scroll = scroll.new(this.planet, this.dataUrl);
+	this.text_processor = text.processor.new(this.planet, this.dataUrl);
+
+	this.effectors = [this.cursor, this.scroll, this.text_processor];
     };
 
     Setting.prototype = (function(){
@@ -316,25 +426,33 @@ var setting = (function(db, cursor, scroll){
 		name = name.toUpperCase();
 		this.planet = selectPlanetData(name);
 		console.log("chnage to " + name);
-		console.log(this.planet.SURFACE_GRAVITY);
-//		this.cursor.setPlanet(this.planet);
-		this.scroll.setPlanet(this.planet);
+		for(var i = 0; i < this.effectors.length; i++){
+		    var effector = this.effectors[i];
+		    if(effector != null && effector.setPlanet != null){
+			effector.setPlanet(this.planet);
+		    }
+		}
 	    },
 	    setDefault: function(){
 		this.planet = selectPlanetData("EARTH");
 	    },
 	    apply: function(){
-		console.log("apply");
-		this.scroll.apply();
+		console.log("apply all effectors");
+		for(var i = 0; i < this.effectors.length; i++){
+		    var effector = this.effectors[i];
+		    if(effector != null && effector.setPlanet != null){
+			effector.apply();
+		    }
+		}
 	    }
 	};
     })();
 
     return {
 	Setting: Setting,
-	new: function(){
-	    return new Setting();
+	new: function(dataUrl){
+	    return new Setting(dataUrl);
 	}
     };
     
-})(planets, cursor, scroll);
+})(ipudg.planets, ipudg.cursor, ipudg.scroll, ipudg.text);
