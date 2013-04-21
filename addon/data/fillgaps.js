@@ -26,7 +26,7 @@ var rootElement = document.body;
 rootElement.insertBefore(toolbar, rootElement.firstChild);
 
 
-var user_setting = setting.new();
+var user_setting = ipudg.setting.new(dataurl);
 user_setting.apply();
 
 
